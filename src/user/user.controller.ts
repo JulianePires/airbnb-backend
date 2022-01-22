@@ -11,8 +11,8 @@ export class UserController {
     return this.userService.create(user);
   }
 
-  @Get(':id')
-  read(@Param('id') id: string) {
-    return this.userService.read(id);
-  }
+  // @Get(':id')
+  // read(@Param('id') id: string) {
+  //   return this.userService.read(id);
+  // }
 }

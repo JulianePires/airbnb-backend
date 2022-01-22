@@ -1,40 +1,37 @@
-import {
-  Injectable,
-  NotFoundException,
-  UnauthorizedException,
-} from '@nestjs/common';
+import { ConflictException, Injectable } from '@nestjs/common';
+import { PrismaService } from 'src/prisma.service';
 import { CreateUserDto } from './dto/create-user.dto';
+
+import * as bcrypt from 'bcrypt';
+import { validate } from 'class-validator';
 
 @Injectable()
 export class UserService {
-  private bancoDeDados: CreateUserDto[] = [];
+  constructor(private prismaService: PrismaService) {}
 
-  create(user: CreateUserDto) {
-    if (user.password !== user.passwordConfirmation) {
-      throw new UnauthorizedException({
-        statusCode: 402,
-        message: 'Senhas não são compatíveis',
-      });
+  async create(createUserDto: CreateUserDto) {
+    const userEmailExists = await this.prismaService.user.findUnique({
+      where: { email: createUserDto.email },
+    });
+
+    if (userEmailExists) {
+      throw new ConflictException('Já existe um usuário com esse e-mail');
     }
 
-    this.bancoDeDados.push(user);
-    const aux = this.bancoDeDados.map((user) => ({
-      name: user.name,
-      email: user.email,
-      phone: user.phone,
-    }));
-    return aux;
-  }
-
-  read(id: string) {
-    const encontrei = this.bancoDeDados.find((user) => user.id === id);
-
-    if (encontrei === undefined) {
-      throw new NotFoundException({
-        statusCode: 404,
-        message: 'Usuário não encontrado',
-      });
+    if (createUserDto.password !== createUserDto.passwordConfirmation) {
+      throw new ConflictException('Senhas digitadas não conferem');
     }
-    return encontrei;
+
+    delete createUserDto.passwordConfirmation;
+
+    const hashedPassword = await bcrypt.hash(createUserDto.password, 10);
+
+    const createdUser = this.prismaService.user.create({
+      data: { ...createUserDto, password: hashedPassword },
+    });
+
+    delete (await createdUser).password;
+
+    return createdUser;
   }
 }
